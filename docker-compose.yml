@@ -1,0 +1,55 @@
+services:
+  app:
+    build: ./app
+    container_name: exemplars-app
+    environment:
+      OTEL_SERVICE_NAME: checkout
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      # The SDK captures an exemplar only when the filter allows it. trace_based
+      # keeps a measurement only if it was recorded inside a sampled span.
+      # The specification defaults to trace_based; not every SDK does.
+      OTEL_METRICS_EXEMPLAR_FILTER: trace_based
+    ports:
+      - 8080:8080
+    depends_on:
+      - otel-collector
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0
+    container_name: exemplars-collector
+    command: [--config=/etc/otelcol-contrib/config.yaml]
+    volumes:
+      - ./otelcol.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - 4317:4317
+      - 4318:4318
+      - 8889:8889
+    depends_on:
+      - jaeger
+
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    container_name: exemplars-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # exemplar-storage: without it Prometheus parses exemplars and stores none
+      # of them. Off by default, and absent it produces no warning.
+      #
+      # old-ui: the Prometheus 3.x UI rewrite kept the "show exemplars" toggle
+      # but dropped the code that fetches them, so the default 3.x UI cannot
+      # display exemplars at all. The 2.x UI still can.
+      - --enable-feature=exemplar-storage,old-ui
+      - --web.enable-otlp-receiver
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - 9090:9090
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.76.0
+    container_name: exemplars-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - 16686:16686

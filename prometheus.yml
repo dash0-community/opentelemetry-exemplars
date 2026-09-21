@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+# No scrape_configs, deliberately.
+#
+# This demo feeds Prometheus over OTLP (--web.enable-otlp-receiver), not by
+# scraping. Leaving the scrape list empty makes the result unambiguous: with
+# /api/v1/targets reporting zero active targets, every exemplar Prometheus holds
+# arrived over OTLP and could not have come from a scrape.
+#
+# Prometheus still needs this file to exist, so it stays even though it
+# configures nothing beyond the global defaults.
